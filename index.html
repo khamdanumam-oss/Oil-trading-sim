@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crude &amp; Products Trading Simulator</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .terminal-panel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .terminal-header {
+      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      border-bottom: 1px solid #cbd5e1;
+      padding: 0.5rem 0.75rem;
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+    }
+    .news-row-active {
+      background-color: #dbeafe !important;
+      color: #1e3a8a;
+    }
+    .thin-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    #qr-container img, #qr-container canvas {
+      margin: 0 auto;
+      border-radius: 0.375rem;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Confirmation Modal (Replaces native confirm) -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5">
+      <h3 id="confirm-title" class="text-base font-semibold text-slate-900">Confirm Action</h3>
+      <p id="confirm-message" class="text-sm text-slate-600 mt-2"></p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="confirm-cancel-btn" class="px-3.5 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+        <button id="confirm-ok-btn" class="px-3.5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-3 sm:px-5 h-14 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 17l6-6 4 4 8-8M17 7h4v4" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="text-sm font-semibold tracking-tight truncate">Oil &amp; Products Trading Sim</div>
+          <div id="header-subtitle" class="text-[11px] text-slate-400 truncate">WTI &bull; Brent &bull; Gasoil &bull; Gasoline</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="status-pill" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="header-day-label">Day 1 / 8</span>
+        </span>
+
+        <div class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+          <button id="nav-facilitator-btn" class="px-2.5 py-1 text-xs font-medium rounded-md transition text-slate-300 hover:text-white">Facilitator</button>
+          <button id="nav-participant-btn" class="px-2.5 py-1 text-xs font-medium rounded-md transition text-slate-300 hover:text-white">Participant</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== ROLE LANDING SCREEN ==================== -->
+  <main id="view-landing" class="hidden flex-1 flex items-center justify-center p-4">
+    <div class="max-w-3xl w-full grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold mb-4">
+            Instructor / Host
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">Facilitator Console</h2>
+          <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+            Configure starting cash and position limits, display the QR code for 4&ndash;7 participants to join, advance trading days, release market news, and monitor the live class leaderboard.
+          </p>
+        </div>
+        <button id="landing-facilitator-btn" class="mt-6 w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition">
+          Open Facilitator Console &rarr;
+        </button>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold mb-4">
+            Student / Trader
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">Participant Terminal</h2>
+          <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+            Join a session via QR code or room code. Trade WTI, Brent, Gasoil, and Gasoline using your Cash Position while staying within Gross and Net open position limits.
+          </p>
+        </div>
+        <button id="landing-participant-btn" class="mt-6 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition">
+          Join as Participant &rarr;
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== FACILITATOR VIEW ==================== -->
+  <main id="view-facilitator" class="hidden flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-5">
+
+    <!-- Top Control Strip -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div class="space-y-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-xs font-bold uppercase tracking-wide">Facilitator</span>
+          <h1 class="text-lg font-bold text-slate-900">Class Trading Control</h1>
+          <span class="text-xs font-mono-num px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-700">Room: <strong id="fac-room-code">CRUDE-26</strong></span>
+          <span class="text-xs font-mono-num px-2 py-0.5 bg-amber-50 border border-amber-200 rounded text-amber-800">Day Pin: <strong id="fac-day-pin">104</strong></span>
+        </div>
+        <p class="text-xs text-slate-500">All participants start with identical cash, zero positions, and identical limits. Advance the day to release news and update market prices.</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button id="fac-qr-btn" class="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-lg transition inline-flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 20h3v1h-3zM20 14h1v3h-1z"/></svg>
+          QR Join Code
+        </button>
+        <button id="fac-open-sim-tab-btn" class="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-lg transition">
+          + Test Participant View
+        </button>
+        <button id="fac-reset-btn" class="px-3.5 py-2 text-xs sm:text-sm font-semibold bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 rounded-lg transition">
+          Reset Game
+        </button>
+        <button id="fac-next-day-btn" class="px-4 py-2 text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
+          <span id="fac-next-day-label">Advance to Day 2</span>
+          <span>&rarr;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Settings & QR + Market Snapshot Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+      <!-- Left: QR & Game Parameters (4 cols) -->
+      <div class="lg:col-span-4 space-y-5">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-slate-900">Participant QR Join</h2>
+            <span id="fac-seat-count" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0 / 6 Active</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+            <div id="qr-container" class="flex justify-center items-center min-h-[148px]"></div>
+            <p class="text-[11px] text-slate-500 mt-2">Participants scan to open the Participant Terminal with Room <strong id="fac-qr-room-label" class="text-slate-800">CRUDE-26</strong>.</p>
+            <div class="mt-2.5 flex items-center gap-1.5">
+              <input id="fac-join-url" type="text" readonly class="flex-1 text-[11px] font-mono-num bg-white border border-slate-200 rounded px-2 py-1 text-slate-600 truncate" />
+              <button id="fac-copy-url-btn" class="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded transition shrink-0">Copy</button>
+            </div>
+          </div>
+
+          <!-- Game Rules Configuration (Editable on Day 1) -->
+          <div class="mt-4 pt-4 border-t border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Game Conditions (All Equal)</h3>
+              <span id="fac-lock-badge" class="text-[11px] text-slate-400">Editable on Day 1</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">Class Size (4&ndash;7)</label>
+                <select id="cfg-class-size" class="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                  <option value="4">4 Participants</option>
+                  <option value="5">5 Participants</option>
+                  <option value="6" selected>6 Participants</option>
+                  <option value="7">7 Participants</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">Starting Cash ($)</label>
+                <select id="cfg-starting-cash" class="w-full text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                  <option value="500000">$500,000</option>
+                  <option value="1000000" selected>$1,000,000</option>
+                  <option value="2000000">$2,000,000</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">Gross Limit (Lots)</label>
+                <input id="cfg-gross-limit" type="number" min="20" max="500" step="10" value="100" class="w-full text-xs font-mono-num border border-slate-300 rounded-md px-2 py-1.5" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-600 mb-1">Net Limit (Lots)</label>
+                <input id="cfg-net-limit" type="number" min="10" max="500" step="10" value="60" class="w-full text-xs font-mono-num border border-slate-300 rounded-md px-2 py-1.5" />
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <button id="fac-apply-cfg-btn" class="px-3 py-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-md transition">Apply Conditions</button>
+              <button id="fac-seed-demo-btn" class="px-3 py-1.5 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md transition">Fill Demo Classmates</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Today's News & Market Prices (8 cols) -->
+      <div class="lg:col-span-8 space-y-5">
+        <!-- Market Prices Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="fac-price-cards"></div>
+
+        <!-- Current Day News Dispatch & Next-Day Rumor -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="fac-news-day-badge" class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-xs font-bold">DAY 1 DISPATCH</span>
+              <span id="fac-rumor-verdict" class="hidden px-2 py-0.5 rounded text-xs font-bold"></span>
+              <h2 id="fac-news-headline" class="text-sm sm:text-base font-bold text-slate-900"></h2>
+            </div>
+            <span id="fac-news-focus" class="text-xs font-medium text-slate-500"></span>
+          </div>
+          <p id="fac-news-body" class="text-sm text-slate-700 leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3.5"></p>
+          <div id="fac-next-rumor-box" class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs sm:text-sm text-amber-900">
+            <span class="font-bold uppercase tracking-wide text-[11px] text-amber-700 block mb-0.5">Next-Day Market Rumor (Shown to Class Before Proceeding)</span>
+            <span id="fac-next-rumor-text"></span>
+          </div>
+        </div>
+
+        <!-- Price History Chart -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-bold text-slate-900">Market Price Trajectory ($/bbl)</h2>
+            <span class="text-xs text-slate-500">Day 1 to Current Day</span>
+          </div>
+          <div class="relative h-56">
+            <canvas id="fac-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Class Leaderboard & Risk Monitor -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
+        <div>
+          <h2 class="text-sm font-bold text-slate-900">Class Results &amp; Cash Position Leaderboard</h2>
+          <p class="text-xs text-slate-500">Ranked by Total P&amp;L (Realized + Unrealized). Cash Position reflects liquid cash only (no equity/margin).</p>
+        </div>
+        <span id="fac-game-status-text" class="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800">Session Active</span>
+      </div>
+      <div class="overflow-x-auto thin-scroll">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
+              <th class="py-2.5 px-3 font-semibold">Rank</th>
+              <th class="py-2.5 px-3 font-semibold">Participant</th>
+              <th class="py-2.5 px-3 font-semibold text-right">Cash Position</th>
+              <th class="py-2.5 px-3 font-semibold text-right">WTI</th>
+              <th class="py-2.5 px-3 font-semibold text-right">BRENT</th>
+              <th class="py-2.5 px-3 font-semibold text-right">GASOIL</th>
+              <th class="py-2.5 px-3 font-semibold text-right">GASOLINE</th>
+              <th class="py-2.5 px-3 font-semibold text-center">Gross / Net Limit</th>
+              <th class="py-2.5 px-3 font-semibold text-right">Realized P&amp;L</th>
+              <th class="py-2.5 px-3 font-semibold text-right">Unrealized P&amp;L</th>
+              <th class="py-2.5 px-3 font-semibold text-right">Total P&amp;L</th>
+            </tr>
+          </thead>
+          <tbody id="fac-leaderboard-body" class="divide-y divide-slate-200 font-mono-num"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== PARTICIPANT VIEW ==================== -->
+  <main id="view-participant" class="hidden flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 space-y-3">
+
+    <!-- Participant Join Gate (if not yet registered in a seat) -->
+    <section id="part-join-card" class="max-w-md mx-auto my-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">QR Join</span>
+        <span class="text-xs text-slate-500">Oil &amp; Products Trading Sim</span>
+      </div>
+      <h1 class="text-lg font-bold text-slate-900">Enter Trading Desk</h1>
+      <p class="text-xs text-slate-600 mt-1">Join the class simulation with your name and seat number.</p>
+
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Room Code</label>
+          <input id="join-room-input" type="text" value="CRUDE-26" class="w-full text-sm font-mono-num border border-slate-300 rounded-lg px-3 py-2 uppercase" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Your Name / Trader ID</label>
+          <input id="join-name-input" type="text" placeholder="e.g. Alex" maxlength="20" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Select Seat (1&ndash;7)</label>
+          <select id="join-seat-select" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white">
+            <option value="P1">Seat 1 (P1)</option>
+            <option value="P2">Seat 2 (P2)</option>
+            <option value="P3">Seat 3 (P3)</option>
+            <option value="P4">Seat 4 (P4)</option>
+            <option value="P5">Seat 5 (P5)</option>
+            <option value="P6">Seat 6 (P6)</option>
+            <option value="P7">Seat 7 (P7)</option>
+          </select>
+        </div>
+        <button id="join-submit-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition">
+          Join Trading Session &rarr;
+        </button>
+      </div>
+    </section>
+
+    <!-- Participant Trading Terminal (STAR Client Inspired) -->
+    <div id="part-terminal" class="hidden space-y-3">
+
+      <!-- Terminal Status Bar -->
+      <div class="bg-slate-800 text-slate-100 rounded-lg px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="font-semibold text-emerald-400">&bull; ACTIVE</span>
+          <span>Trader: <strong id="term-trader-name" class="text-white"></strong> (<span id="term-trader-id" class="font-mono-num text-slate-300"></span>)</span>
+          <span class="hidden sm:inline text-slate-400">|</span>
+          <span>Room: <strong id="term-room-code" class="font-mono-num text-amber-300"></strong></span>
+          <span class="hidden sm:inline text-slate-400">|</span>
+          <span>Day: <strong id="term-day-badge" class="font-mono-num text-sky-300">1 / 8</strong></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 bg-slate-700/70 rounded px-2 py-0.5 border border-slate-600">
+            <span class="text-[11px] text-slate-300">Sync Day Pin:</span>
+            <input id="part-pin-input" type="text" placeholder="Pin" maxlength="4" class="w-12 bg-slate-900 text-white text-[11px] font-mono-num px-1.5 py-0.5 rounded border border-slate-600" />
+            <button id="part-pin-btn" class="text-[11px] font-semibold text-sky-300 hover:text-sky-200 px-1">Go</button>
+          </div>
+          <button id="part-leave-btn" class="text-[11px] text-slate-300 hover:text-white underline">Switch Seat</button>
+        </div>
+      </div>
+
+      <!-- Top Row: Portfolio Table (8 cols) + Trader Info & Limits (4 cols) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+
+        <!-- Portfolio Window -->
+        <div class="lg:col-span-8 terminal-panel flex flex-col">
+          <div class="terminal-header flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-xs bg-blue-600"></span>
+              Portfolio (Cash &amp; Open Positions)
+            </span>
+            <span class="text-[11px] text-slate-500">Contract Size: 100 bbl / lot</span>
+          </div>
+          <div class="overflow-x-auto thin-scroll">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th class="py-2 px-2.5 font-semibold">Ticker</th>
+                  <th class="py-2 px-2 font-semibold">Product</th>
+                  <th class="py-2 px-2 font-semibold text-right">Position</th>
+                  <th class="py-2 px-2 font-semibold text-right">Avg Cost</th>
+                  <th class="py-2 px-2 font-semibold text-right">Last</th>
+                  <th class="py-2 px-2 font-semibold text-right">Bid</th>
+                  <th class="py-2 px-2 font-semibold text-right">Ask</th>
+                  <th class="py-2 px-2 font-semibold text-right">Realized P&amp;L</th>
+                  <th class="py-2 px-2 font-semibold text-right">Unrealized P&amp;L</th>
+                  <th class="py-2 px-2.5 font-semibold text-right">My Vol</th>
+                </tr>
+              </thead>
+              <tbody id="part-portfolio-body" class="divide-y divide-slate-200 font-mono-num"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Trader Info & Position Limits Window (Matches Screenshot Right Card) -->
+        <div class="lg:col-span-4 terminal-panel flex flex-col">
+          <div class="terminal-header flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800">Trader Info &amp; Position Limits</span>
+            <span class="text-[11px] font-medium text-slate-500">Cash Basis</span>
+          </div>
+          <div class="p-3 space-y-3 text-xs flex-1 flex flex-col justify-between">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-slate-50 border border-slate-200 rounded-md p-2">
+                <div class="text-[11px] text-slate-500">Cash Position</div>
+                <div id="info-cash" class="text-sm font-bold font-mono-num text-slate-900 mt-0.5">$1,000,000</div>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 rounded-md p-2">
+                <div class="text-[11px] text-slate-500">Total P&amp;L</div>
+                <div id="info-total-pnl" class="text-sm font-bold font-mono-num text-slate-900 mt-0.5">$0</div>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 rounded-md p-2">
+                <div class="text-[11px] text-slate-500">Realized P&amp;L</div>
+                <div id="info-realized-pnl" class="text-xs font-semibold font-mono-num text-slate-800 mt-0.5">$0</div>
+              </div>
+              <div class="bg-slate-50 border border-slate-200 rounded-md p-2">
+                <div class="text-[11px] text-slate-500">Unrealized P&amp;L</div>
+                <div id="info-unrealized-pnl" class="text-xs font-semibold font-mono-num text-slate-800 mt-0.5">$0</div>
+              </div>
+            </div>
+
+            <!-- Open Position Limits -->
+            <div class="border border-slate-200 rounded-md p-2.5 bg-slate-50/70 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-semibold text-slate-700">Limit &mdash; Gross</span>
+                <span id="limit-gross-text" class="font-mono-num font-semibold text-slate-900">0 / 100</span>
+              </div>
+              <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div id="limit-gross-bar" class="h-full bg-blue-600 transition-all" style="width: 0%"></div>
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <span class="font-semibold text-slate-700">Limit &mdash; Net</span>
+                <span id="limit-net-text" class="font-mono-num font-semibold text-slate-900">0 / 60</span>
+              </div>
+              <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div id="limit-net-bar" class="h-full bg-amber-500 transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Order Entry + Charting (Left 6 cols) & News Reader (Right 6 cols) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+
+        <!-- Left Column: Order Entry + Security Charting -->
+        <div class="lg:col-span-6 space-y-3">
+
+          <!-- Order Entry Panel -->
+          <div class="terminal-panel">
+            <div class="terminal-header flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">Order Entry</span>
+              <span id="order-notional-preview" class="text-[11px] font-mono-num text-slate-600">Est. Cash Impact: $0</span>
+            </div>
+            <div class="p-3 space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Ticker</label>
+                  <select id="order-ticker" class="w-full text-xs font-semibold border border-slate-300 rounded-md px-2.5 py-2 bg-white">
+                    <option value="WTI">WTI (Crude Oil)</option>
+                    <option value="BRENT">BRENT (Crude Oil)</option>
+                    <option value="GASOIL">GASOIL (ULSD 10ppm)</option>
+                    <option value="GASOLINE">GASOLINE (Mogas 92)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-semibold text-slate-600 mb-1">Quantity (Lots)</label>
+                  <input id="order-qty" type="number" min="1" max="500" value="10" class="w-full text-xs font-mono-num border border-slate-300 rounded-md px-2.5 py-2" />
+                </div>
+                <div class="flex gap-1.5">
+                  <button type="button" data-qty="5" class="quick-qty-btn flex-1 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md">5</button>
+                  <button type="button" data-qty="10" class="quick-qty-btn flex-1 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md">10</button>
+                  <button type="button" data-qty="25" class="quick-qty-btn flex-1 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md">25</button>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div class="text-xs text-slate-600 font-mono-num">
+                  Bid: <strong id="order-bid" class="text-rose-700">$0.00</strong> &nbsp;|&nbsp; Ask: <strong id="order-ask" class="text-emerald-700">$0.00</strong>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto">
+                  <button id="btn-buy" class="flex-1 sm:w-28 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow-xs transition">
+                    BUY (MKT)
+                  </button>
+                  <button id="btn-sell" class="flex-1 sm:w-28 py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow-xs transition">
+                    SELL (MKT)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Charting Panel -->
+          <div class="terminal-panel">
+            <div class="terminal-header flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-bold text-slate-800">Security Charting: [<span id="chart-active-ticker">WTI</span>]</span>
+              <div class="flex gap-1">
+                <button data-chart-ticker="WTI" class="chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-slate-800 text-white">WTI</button>
+                <button data-chart-ticker="BRENT" class="chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-700 border border-slate-300">BRENT</button>
+                <button data-chart-ticker="GASOIL" class="chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-700 border border-slate-300">GASOIL</button>
+                <button data-chart-ticker="GASOLINE" class="chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-700 border border-slate-300">GASOLINE</button>
+              </div>
+            </div>
+            <div class="p-3">
+              <div class="relative h-56">
+                <canvas id="part-chart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: News Window (Matches Screenshot Two-Pane News + Next-Day Rumor) -->
+        <div class="lg:col-span-6 terminal-panel flex flex-col">
+          <div class="terminal-header flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800">Market News Wire &amp; Rumors</span>
+            <span id="news-unread-count" class="text-[11px] font-semibold text-blue-700">1 Unread</span>
+          </div>
+
+          <!-- Active Rumor Banner for Next Day -->
+          <div id="part-rumor-box" class="bg-amber-50 border-b border-amber-200 px-3 py-2.5 text-xs text-amber-950">
+            <span class="inline-block px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 font-bold text-[10px] uppercase tracking-wide mr-1.5">Tomorrow's Rumor</span>
+            <span id="part-rumor-text" class="font-medium"></span>
+          </div>
+
+          <!-- Top Headline List -->
+          <div class="max-h-44 overflow-y-auto thin-scroll border-b border-slate-200">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 text-slate-600 border-b border-slate-200 sticky top-0">
+                  <th class="py-1.5 px-2.5 font-semibold w-14">Day</th>
+                  <th class="py-1.5 px-2 font-semibold w-20">Rumor</th>
+                  <th class="py-1.5 px-2 font-semibold">Headline</th>
+                  <th class="py-1.5 px-2.5 font-semibold text-center w-12">Read</th>
+                </tr>
+              </thead>
+              <tbody id="part-news-list" class="divide-y divide-slate-200 cursor-pointer"></tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Full Story Paragraph -->
+          <div class="p-3.5 flex-1 bg-slate-50/60 flex flex-col justify-between">
+            <div>
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700" id="reader-day">Day 1</span>
+                    <span id="reader-verdict" class="hidden px-1.5 py-0.5 rounded text-[10px] font-bold"></span>
+                  </div>
+                  <h3 id="reader-headline" class="text-sm font-bold text-slate-900 mt-0.5"></h3>
+                </div>
+                <span id="reader-focus" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700"></span>
+              </div>
+              <p id="reader-body" class="text-xs sm:text-sm text-slate-700 leading-relaxed mt-3"></p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+              <span>Position before the Facilitator advances to the next day—rumors can be true or false!</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ==================== CONSTANTS & SCENARIO DATA ====================
+      const CONTRACT_SIZE = 100;
+      const MAX_DAYS = 8;
+      const SPREAD_HALF = 0.05;
+
+      const INSTRUMENTS = [
+        { ticker: 'WTI', name: 'WTI Crude Oil', unit: '$/bbl', color: '#2563eb', startPrice: 72.50 },
+        { ticker: 'BRENT', name: 'Brent Crude Oil', unit: '$/bbl', color: '#0f766e', startPrice: 76.20 },
+        { ticker: 'GASOIL', name: 'Gasoil (ULSD 10ppm)', unit: '$/bbl', color: '#d97706', startPrice: 89.40 },
+        { ticker: 'GASOLINE', name: 'Gasoline (Mogas 92)', unit: '$/bbl', color: '#dc2626', startPrice: 84.10 }
+      ];
+
+      const SCENARIO_DAYS = [
+        {
+          day: 1,
+          pin: '104',
+          focus: 'ALL MARKETS',
+          rumorStatus: 'OPENING',
+          headline: 'Opening Bell: Calm Supply & Steady Refinery Margins',
+          body: 'Oil markets start the week quietly as OPEC+ producers stick to their supply quotas. Refineries are running smoothly, turning crude oil into gasoil (diesel) and gasoline at normal crack spreads (refining profit margins). Both WTI and Brent crude are trading in mild backwardation, meaning immediate barrels cost slightly more than future cargoes.',
+          nextRumor: 'Rumor for Day 2: Market whispers say US crude tanks at Cushing saw a huge inventory draw this week because of strong exports. If true, WTI crude could jump.',
+          prices: { WTI: 72.50, BRENT: 76.20, GASOIL: 89.40, GASOLINE: 84.10 }
+        },
+        {
+          day: 2,
+          pin: '219',
+          focus: 'WTI / BRENT',
+          rumorStatus: 'TRUE',
+          headline: 'Rumor Confirmed: Big US Crude Inventory Draw Lifts WTI',
+          body: 'The rumor was TRUE. Weekly storage data showed a 4.8 million barrel inventory draw at Cushing, Oklahoma, as Gulf Coast exports drained US tanks faster than pipelines could refill them. WTI crude rallied sharply and narrowed the Brent-WTI spread, while gasoil and gasoline edged up slightly on higher crude feedstock costs.',
+          nextRumor: 'Rumor for Day 3: Traders hear a major European refinery in Rotterdam just suffered an unplanned outage, which could cut gasoil (diesel) supply.',
+          prices: { WTI: 75.80, BRENT: 78.10, GASOIL: 90.60, GASOLINE: 85.40 }
+        },
+        {
+          day: 3,
+          pin: '342',
+          focus: 'GASOIL',
+          rumorStatus: 'TRUE',
+          headline: 'Rumor Confirmed: Rotterdam Refinery Outage Squeezes Gasoil',
+          body: 'The rumor was TRUE. A major refinery in the Amsterdam-Rotterdam-Antwerp (ARA) hub announced an unplanned turnaround that will cut ultra-low sulfur gasoil output for two weeks. Spot buyers rushed for diesel cargoes, pushing the gasoil crack spread much wider, while Brent and WTI crude slipped slightly because the offline plant needs less crude.',
+          nextRumor: 'Rumor for Day 4: Word on the street says OPEC+ is about to call an emergency meeting to cut oil production even deeper.',
+          prices: { WTI: 74.90, BRENT: 77.20, GASOIL: 95.80, GASOLINE: 86.10 }
+        },
+        {
+          day: 4,
+          pin: '478',
+          focus: 'GASOLINE',
+          rumorStatus: 'FALSE',
+          headline: 'Rumor False: No OPEC+ Cut, But Driving Surge Lifts Gasoline',
+          body: 'The OPEC+ rumor was FALSE—producers made no supply changes today. Instead, strong highway driving data and stricter summer-grade fuel blending rules sparked a surprise rally in gasoline, widening the gasoline crack spread. Crude oil stayed mostly flat while gasoil cooled off slightly.',
+          nextRumor: 'Rumor for Day 5: Desk chatter claims OPEC+ ministers are actually planning to increase oil output next month to win back market share.',
+          prices: { WTI: 75.40, BRENT: 77.90, GASOIL: 94.90, GASOLINE: 91.50 }
+        },
+        {
+          day: 5,
+          pin: '531',
+          focus: 'BRENT / WTI',
+          rumorStatus: 'TRUE',
+          headline: 'Rumor Confirmed: OPEC+ Signals Output Hike, Crude Slides',
+          body: 'The rumor was TRUE. Key OPEC+ ministers hinted they may unwind voluntary production cuts next month as non-OPEC supply grows. Worries that extra barrels could push the market into contango (oversupply in storage) sent both Brent and WTI crude lower, pulling gasoil and gasoline down slightly.',
+          nextRumor: 'Rumor for Day 6: Shipping brokers report possible Red Sea tanker delays that could block Asian gasoil and Brent cargoes from reaching Europe.',
+          prices: { WTI: 71.10, BRENT: 73.60, GASOIL: 92.20, GASOLINE: 88.80 }
+        },
+        {
+          day: 6,
+          pin: '665',
+          focus: 'ALL MARKETS',
+          rumorStatus: 'TRUE',
+          headline: 'Rumor Confirmed: Tanker Rerouting Spikes Freight & Gasoil',
+          body: 'The rumor was TRUE. Maritime security alerts forced tankers to take longer routes around southern Africa, raising freight rates and delaying deliveries. Seaborne Brent crude and European gasoil jumped on tight prompt supply, while US-locked WTI saw a smaller gain.',
+          nextRumor: 'Rumor for Day 7: Rumor has it that US and Asian gasoline tanks are running nearly empty after a massive weekend demand spike.',
+          prices: { WTI: 73.20, BRENT: 77.50, GASOIL: 97.40, GASOLINE: 90.20 }
+        },
+        {
+          day: 7,
+          pin: '790',
+          focus: 'GASOLINE / GASOIL',
+          rumorStatus: 'FALSE',
+          headline: 'Rumor False: High Refinery Runs Cause Surprise Fuel Build',
+          body: 'The shortage rumor was FALSE. Tempted by strong crack spreads, refineries ran at 95% capacity and flooded the market with fuel. Weekly data showed a big inventory build in both gasoline and gasoil, compressing product prices while steady refinery crude demand kept Brent and WTI firm.',
+          nextRumor: 'Rumor for Day 8: Final day ahead—analysts expect calm macro data and balanced port inventories with no major supply shocks.',
+          prices: { WTI: 74.10, BRENT: 78.00, GASOIL: 93.10, GASOLINE: 85.60 }
+        },
+        {
+          day: 8,
+          pin: '888',
+          focus: 'SETTLEMENT',
+          rumorStatus: 'TRUE',
+          headline: 'Rumor Confirmed: Calm Inventories Close the Trading Week',
+          body: 'The calm-market rumor was TRUE. Steady factory data and balanced port inventories kept energy prices in a tight range on the final settlement day. Refiners normalized run rates, leaving gasoil and gasoline crack spreads near average levels as traders closed out their books.',
+          nextRumor: null,
+          prices: { WTI: 74.60, BRENT: 78.40, GASOIL: 94.00, GASOLINE: 86.50 }
+        }
+      ];
+
+      // ==================== STATE MANAGEMENT ====================
+      const STORAGE_KEY = 'oil_trading_sim_state_v1';
+      let bc = null;
+      try {
+        if ('BroadcastChannel' in window) {
+          bc = new BroadcastChannel('oil_trading_sim_channel_v1');
+        }
+      } catch (e) {}
+
+      function createDefaultState() {
+        return {
+          roomCode: 'CRUDE-26',
+          day: 1,
+          maxDays: MAX_DAYS,
+          classSize: 6,
+          startingCash: 1000000,
+          grossLimit: 100,
+          netLimit: 60,
+          traders: {},
+          updatedAt: Date.now()
+        };
+      }
+
+      function createEmptyTrader(id, name, isDemo = false) {
+        const positions = {};
+        const avgCost = {};
+        const realizedPnl = {};
+        const volume = {};
+        INSTRUMENTS.forEach(inst => {
+          positions[inst.ticker] = 0;
+          avgCost[inst.ticker] = 0;
+          realizedPnl[inst.ticker] = 0;
+          volume[inst.ticker] = 0;
+        });
+        return {
+          id,
+          name,
+          isDemo,
+          cash: state.startingCash,
+          positions,
+          avgCost,
+          realizedPnl,
+          volume,
+          joinedAt: Date.now()
+        };
+      }
+
+      let state = createDefaultState();
+      let currentView = 'landing';
+      let myTraderId = null;
+      let selectedNewsDay = 1;
+      let readNewsDays = new Set([1]);
+      let selectedChartTicker = 'WTI';
+      let facChartInstance = null;
+      let partChartInstance = null;
+
+      function loadStateFromStorage() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.roomCode) {
+              state = parsed;
+            }
+          }
+        } catch (e) {}
+      }
+
+      function saveAndBroadcastState() {
+        state.updatedAt = Date.now();
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+        try {
+          if (bc) bc.postMessage({ type: 'STATE_SYNC', state });
+        } catch (e) {}
+      }
+
+      if (bc) {
+        bc.onmessage = (event) => {
+          if (event.data && event.data.type === 'STATE_SYNC' && event.data.state) {
+            state = event.data.state;
+            renderCurrentView();
+          }
+        };
+      }
+
+      // ==================== HELPERS & CALCULATIONS ====================
+      function formatMoney(num, showSign = false) {
+        const val = Number(num) || 0;
+        const abs = Math.abs(val);
+        const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        if (val < 0) return `-$${formatted}`;
+        if (showSign && val > 0) return `+$${formatted}`;
+        return `$${formatted}`;
+      }
+
+      function getCurrentPrices() {
+        const dayObj = SCENARIO_DAYS[Math.min(state.day, MAX_DAYS) - 1] || SCENARIO_DAYS[0];
+        return dayObj.prices;
+      }
+
+      function computeTraderMetrics(trader) {
+        const prices = getCurrentPrices();
+        let grossLots = 0;
+        let netLots = 0;
+        let totalRealized = 0;
+        let totalUnrealized = 0;
+
+        INSTRUMENTS.forEach(inst => {
+          const t = inst.ticker;
+          const pos = trader.positions[t] || 0;
+          const cost = trader.avgCost[t] || 0;
+          const mkt = prices[t];
+          grossLots += Math.abs(pos);
+          netLots += pos;
+          totalRealized += (trader.realizedPnl[t] || 0);
+          if (pos !== 0) {
+            totalUnrealized += pos * (mkt - cost) * CONTRACT_SIZE;
+          }
+        });
+
+        return {
+          grossLots,
+          netAbsLots: Math.abs(netLots),
+          netLots,
+          totalRealized,
+          totalUnrealized,
+          totalPnl: totalRealized + totalUnrealized
+        };
+      }
+
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const colors = {
+          info: 'bg-slate-900 text-white border-slate-700',
+          success: 'bg-emerald-700 text-white border-emerald-600',
+          error: 'bg-rose-700 text-white border-rose-600',
+          warning: 'bg-amber-600 text-white border-amber-500'
+        };
+        toast.className = `pointer-events-auto px-4 py-2.5 rounded-lg border shadow-lg text-xs font-medium transition-opacity duration-300 ${colors[type] || colors.info}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          setTimeout(() => toast.remove(), 300);
+        }, 3200);
+      }
+
+      function openConfirmModal(title, message, onConfirm) {
+        const modal = document.getElementById('confirm-modal');
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        modal.classList.remove('hidden');
+
+        const cancelBtn = document.getElementById('confirm-cancel-btn');
+        const okBtn = document.getElementById('confirm-ok-btn');
+
+        const cleanup = () => {
+          modal.classList.add('hidden');
+          cancelBtn.onclick = null;
+          okBtn.onclick = null;
+        };
+        cancelBtn.onclick = cleanup;
+        okBtn.onclick = () => {
+          cleanup();
+          onConfirm();
+        };
+      }
+
+      // ==================== TRADING EXECUTION (CASH & POSITION LIMITS) ====================
+      function executeOrder(traderId, ticker, side, qty) {
+        const trader = state.traders[traderId];
+        if (!trader) return;
+        const q = parseInt(qty, 10);
+        if (!q || q <= 0) {
+          showToast('Please enter a valid positive lot quantity.', 'error');
+          return;
+        }
+
+        const prices = getCurrentPrices();
+        const midPrice = prices[ticker];
+        const execPrice = side === 'BUY' ? +(midPrice + SPREAD_HALF).toFixed(2) : +(midPrice - SPREAD_HALF).toFixed(2);
+        const signedDelta = side === 'BUY' ? q : -q;
+
+        const currentPos = trader.positions[ticker] || 0;
+        const newPos = currentPos + signedDelta;
+
+        let newGross = 0;
+        let newNet = 0;
+        INSTRUMENTS.forEach(inst => {
+          const p = inst.ticker === ticker ? newPos : (trader.positions[inst.ticker] || 0);
+          newGross += Math.abs(p);
+          newNet += p;
+        });
+
+        if (newGross > state.grossLimit) {
+          showToast(`Order blocked: Gross position (${newGross} lots) exceeds limit of ${state.grossLimit} lots.`, 'error');
+          return;
+        }
+        if (Math.abs(newNet) > state.netLimit) {
+          showToast(`Order blocked: Net position (${Math.abs(newNet)} lots) exceeds limit of ${state.netLimit} lots.`, 'error');
+          return;
+        }
+
+        const cashDelta = -signedDelta * CONTRACT_SIZE * execPrice;
+        const projectedCash = trader.cash + cashDelta;
+        if (projectedCash < 0) {
+          showToast(`Insufficient Cash Position! Need ${formatMoney(-cashDelta)} cash, have ${formatMoney(trader.cash)}.`, 'error');
+          return;
+        }
+
+        const prevCost = trader.avgCost[ticker] || 0;
+        if (currentPos === 0) {
+          trader.positions[ticker] = newPos;
+          trader.avgCost[ticker] = execPrice;
+        } else if ((currentPos > 0 && signedDelta > 0) || (currentPos < 0 && signedDelta < 0)) {
+          const totalAbs = Math.abs(currentPos) + Math.abs(signedDelta);
+          trader.avgCost[ticker] = ((Math.abs(currentPos) * prevCost) + (Math.abs(signedDelta) * execPrice)) / totalAbs;
+          trader.positions[ticker] = newPos;
+        } else {
+          const closedQty = Math.min(Math.abs(currentPos), Math.abs(signedDelta));
+          const pnlPerUnit = currentPos > 0 ? (execPrice - prevCost) : (prevCost - execPrice);
+          trader.realizedPnl[ticker] = (trader.realizedPnl[ticker] || 0) + closedQty * CONTRACT_SIZE * pnlPerUnit;
+          trader.positions[ticker] = newPos;
+          if (newPos === 0) {
+            trader.avgCost[ticker] = 0;
+          } else if (Math.sign(newPos) !== Math.sign(currentPos)) {
+            trader.avgCost[ticker] = execPrice;
+          }
+        }
+
+        trader.cash = projectedCash;
+        trader.volume[ticker] = (trader.volume[ticker] || 0) + q;
+
+        saveAndBroadcastState();
+        renderParticipantTerminal();
+        showToast(`${side} ${q} ${ticker} @ $${execPrice.toFixed(2)} filled.`, 'success');
+      }
+
+      // ==================== DEMO CLASSMATE SIMULATION ====================
+      function simulateDemoTradesForDay(day) {
+        const prices = SCENARIO_DAYS[day - 1].prices;
+        Object.values(state.traders).forEach(trader => {
+          if (!trader.isDemo) return;
+          const picks = INSTRUMENTS.slice().sort(() => Math.random() - 0.5).slice(0, 2);
+          picks.forEach(inst => {
+            const side = Math.random() > 0.48 ? 'BUY' : 'SELL';
+            const qty = Math.floor(Math.random() * 12) + 4;
+            const signedDelta = side === 'BUY' ? qty : -qty;
+            const currentPos = trader.positions[inst.ticker] || 0;
+            const newPos = currentPos + signedDelta;
+
+            let newGross = 0;
+            let newNet = 0;
+            INSTRUMENTS.forEach(i => {
+              const p = i.ticker === inst.ticker ? newPos : (trader.positions[i.ticker] || 0);
+              newGross += Math.abs(p);
+              newNet += p;
+            });
+            if (newGross > state.grossLimit || Math.abs(newNet) > state.netLimit) return;
+
+            const execPrice = prices[inst.ticker];
+            const cashDelta = -signedDelta * CONTRACT_SIZE * execPrice;
+            if (trader.cash + cashDelta < 0) return;
+
+            const prevCost = trader.avgCost[inst.ticker] || 0;
+            if (currentPos === 0) {
+              trader.positions[inst.ticker] = newPos;
+              trader.avgCost[inst.ticker] = execPrice;
+            } else if (Math.sign(currentPos) === Math.sign(signedDelta)) {
+              const totalAbs = Math.abs(currentPos) + Math.abs(signedDelta);
+              trader.avgCost[inst.ticker] = ((Math.abs(currentPos) * prevCost) + (Math.abs(signedDelta) * execPrice)) / totalAbs;
+              trader.positions[inst.ticker] = newPos;
+            } else {
+              const closedQty = Math.min(Math.abs(currentPos), Math.abs(signedDelta));
+              const pnlPerUnit = currentPos > 0 ? (execPrice - prevCost) : (prevCost - execPrice);
+              trader.realizedPnl[inst.ticker] += closedQty * CONTRACT_SIZE * pnlPerUnit;
+              trader.positions[inst.ticker] = newPos;
+              if (newPos === 0) trader.avgCost[inst.ticker] = 0;
+              else if (Math.sign(newPos) !== Math.sign(currentPos)) trader.avgCost[inst.ticker] = execPrice;
+            }
+            trader.cash += cashDelta;
+            trader.volume[inst.ticker] += qty;
+          });
+        });
+      }
+
+      // ==================== ROUTING & VIEW SWITCHING ====================
+      function switchView(view) {
+        currentView = view;
+        document.getElementById('view-landing').classList.toggle('hidden', view !== 'landing');
+        document.getElementById('view-facilitator').classList.toggle('hidden', view !== 'facilitator');
+        document.getElementById('view-participant').classList.toggle('hidden', view !== 'participant');
+
+        const facBtn = document.getElementById('nav-facilitator-btn');
+        const partBtn = document.getElementById('nav-participant-btn');
+        facBtn.className = view === 'facilitator'
+          ? 'px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-600 text-white'
+          : 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-300 hover:text-white';
+        partBtn.className = view === 'participant'
+          ? 'px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-600 text-white'
+          : 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-300 hover:text-white';
+
+        renderCurrentView();
+      }
+
+      function renderCurrentView() {
+        document.getElementById('header-day-label').textContent = `Day ${state.day} / ${state.maxDays}`;
+        if (currentView === 'facilitator') renderFacilitatorView();
+        else if (currentView === 'participant') renderParticipantView();
+      }
+
+      // ==================== QR CODE RENDERING ====================
+      function getJoinUrl() {
+        const base = window.location.href.split('?')[0].split('#')[0];
+        const cleanBase = base.startsWith('http') ? base : 'https://trading-sim.local/';
+        return `${cleanBase}?role=participant&room=${encodeURIComponent(state.roomCode)}`;
+      }
+
+      function renderQRCode() {
+        const container = document.getElementById('qr-container');
+        const joinUrl = getJoinUrl();
+        document.getElementById('fac-join-url').value = joinUrl;
+        document.getElementById('fac-qr-room-label').textContent = state.roomCode;
+        container.innerHTML = '';
+        try {
+          if (typeof QRCode !== 'undefined') {
+            new QRCode(container, {
+              text: joinUrl,
+              width: 136,
+              height: 136,
+              colorDark: '#0f172a',
+              colorLight: '#f8fafc',
+              correctLevel: QRCode.CorrectLevel.M
+            });
+          } else {
+            container.innerHTML = `<div class="p-4 text-xs text-slate-500">QR Code Ready (${state.roomCode})</div>`;
+          }
+        } catch (e) {
+          container.innerHTML = `<div class="p-4 text-xs text-slate-500">Room: ${state.roomCode}</div>`;
+        }
+      }
+
+      // ==================== FACILITATOR RENDERING ====================
+      function renderFacilitatorView() {
+        document.getElementById('fac-room-code').textContent = state.roomCode;
+        const dayObj = SCENARIO_DAYS[state.day - 1];
+        document.getElementById('fac-day-pin').textContent = dayObj.pin;
+
+        const traderList = Object.values(state.traders);
+        document.getElementById('fac-seat-count').textContent = `${traderList.length} / ${state.classSize} Active`;
+
+        const nextBtn = document.getElementById('fac-next-day-btn');
+        const nextLabel = document.getElementById('fac-next-day-label');
+        if (state.day >= state.maxDays) {
+          nextLabel.textContent = 'Final Day Reached';
+          nextBtn.disabled = true;
+          nextBtn.className = 'px-4 py-2 text-xs sm:text-sm font-semibold bg-slate-300 text-slate-600 rounded-lg cursor-not-allowed inline-flex items-center gap-1.5';
+          document.getElementById('fac-game-status-text').textContent = 'Final Settlement Complete';
+          document.getElementById('fac-game-status-text').className = 'text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-100 text-amber-800';
+        } else {
+          nextLabel.textContent = `Advance to Day ${state.day + 1}`;
+          nextBtn.disabled = false;
+          nextBtn.className = 'px-4 py-2 text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition inline-flex items-center gap-1.5';
+          document.getElementById('fac-game-status-text').textContent = 'Session Active';
+          document.getElementById('fac-game-status-text').className = 'text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800';
+        }
+
+        const locked = state.day > 1;
+        ['cfg-class-size', 'cfg-starting-cash', 'cfg-gross-limit', 'cfg-net-limit', 'fac-apply-cfg-btn'].forEach(id => {
+          const el = document.getElementById(id);
+          el.disabled = locked;
+          el.classList.toggle('opacity-50', locked);
+        });
+        document.getElementById('fac-lock-badge').textContent = locked ? 'Locked (In Progress)' : 'Editable on Day 1';
+
+        const prevPrices = state.day > 1 ? SCENARIO_DAYS[state.day - 2].prices : dayObj.prices;
+        const priceCardsEl = document.getElementById('fac-price-cards');
+        priceCardsEl.innerHTML = INSTRUMENTS.map(inst => {
+          const cur = dayObj.prices[inst.ticker];
+          const prev = prevPrices[inst.ticker];
+          const diff = cur - prev;
+          const pct = prev > 0 ? (diff / prev) * 100 : 0;
+          const diffCls = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-600' : 'text-slate-500';
+          const sign = diff > 0 ? '+' : '';
+          return `
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-900">${inst.ticker}</span>
+                <span class="text-[11px] font-mono-num font-semibold ${diffCls}">${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(1)}%)</span>
+              </div>
+              <div class="text-lg font-bold font-mono-num text-slate-900 mt-1">$${cur.toFixed(2)}</div>
+              <div class="text-[11px] text-slate-500 truncate">${inst.name}</div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('fac-news-day-badge').textContent = `DAY ${dayObj.day} NEWS`;
+        const facVerdictEl = document.getElementById('fac-rumor-verdict');
+        if (dayObj.rumorStatus === 'TRUE') {
+          facVerdictEl.textContent = 'RUMOR: TRUE';
+          facVerdictEl.className = 'px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-xs font-bold';
+        } else if (dayObj.rumorStatus === 'FALSE') {
+          facVerdictEl.textContent = 'RUMOR: FALSE';
+          facVerdictEl.className = 'px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-bold';
+        } else {
+          facVerdictEl.className = 'hidden';
+        }
+        document.getElementById('fac-news-headline').textContent = dayObj.headline;
+        document.getElementById('fac-news-focus').textContent = `Focus: ${dayObj.focus}`;
+        document.getElementById('fac-news-body').textContent = dayObj.body;
+
+        const facRumorBox = document.getElementById('fac-next-rumor-box');
+        if (dayObj.nextRumor) {
+          facRumorBox.classList.remove('hidden');
+          document.getElementById('fac-next-rumor-text').textContent = dayObj.nextRumor;
+        } else {
+          facRumorBox.classList.add('hidden');
+        }
+
+        const ranked = traderList.map(t => ({ trader: t, metrics: computeTraderMetrics(t) }))
+          .sort((a, b) => b.metrics.totalPnl - a.metrics.totalPnl);
+
+        const tbody = document.getElementById('fac-leaderboard-body');
+        if (ranked.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="11" class="py-8 text-center text-slate-500 font-sans">
+                No participants have joined yet. Share the QR code or click <strong>"Fill Demo Classmates"</strong> to preview a 4&ndash;7 person class.
+              </td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML = ranked.map((row, idx) => {
+            const t = row.trader;
+            const m = row.metrics;
+            const pnlCls = m.totalPnl > 0 ? 'text-emerald-700 font-bold' : m.totalPnl < 0 ? 'text-rose-700 font-bold' : 'text-slate-700';
+            return `
+              <tr class="hover:bg-slate-50">
+                <td class="py-2.5 px-3 font-bold text-slate-700">#${idx + 1}</td>
+                <td class="py-2.5 px-3 font-sans">
+                  <div class="font-semibold text-slate-900">${t.name} <span class="text-[11px] font-mono-num text-slate-400">(${t.id})</span></div>
+                  ${t.isDemo ? '<span class="text-[10px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">Demo</span>' : '<span class="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded">Live</span>'}
+                </td>
+                <td class="py-2.5 px-3 text-right font-semibold text-slate-900">${formatMoney(t.cash)}</td>
+                <td class="py-2.5 px-3 text-right">${t.positions.WTI || 0}</td>
+                <td class="py-2.5 px-3 text-right">${t.positions.BRENT || 0}</td>
+                <td class="py-2.5 px-3 text-right">${t.positions.GASOIL || 0}</td>
+                <td class="py-2.5 px-3 text-right">${t.positions.GASOLINE || 0}</td>
+                <td class="py-2.5 px-3 text-center text-[11px]">
+                  <span class="text-slate-700">${m.grossLots}/${state.grossLimit}</span> &bull;
+                  <span class="text-slate-700">${m.netAbsLots}/${state.netLimit}</span>
+                </td>
+                <td class="py-2.5 px-3 text-right">${formatMoney(m.totalRealized, true)}</td>
+                <td class="py-2.5 px-3 text-right">${formatMoney(m.totalUnrealized, true)}</td>
+                <td class="py-2.5 px-3 text-right ${pnlCls}">${formatMoney(m.totalPnl, true)}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        renderFacilitatorChart();
+      }
+
+      function renderFacilitatorChart() {
+        const ctx = document.getElementById('fac-chart').getContext('2d');
+        const labels = SCENARIO_DAYS.slice(0, state.day).map(d => `Day ${d.day}`);
+        const datasets = INSTRUMENTS.map(inst => ({
+          label: inst.ticker,
+          data: SCENARIO_DAYS.slice(0, state.day).map(d => d.prices[inst.ticker]),
+          borderColor: inst.color,
+          backgroundColor: inst.color + '20',
+          borderWidth: 2,
+          tension: 0.25,
+          pointRadius: 3
+        }));
+
+        if (facChartInstance) facChartInstance.destroy();
+        facChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+            scales: {
+              y: { ticks: { callback: v => '$' + v.toFixed(0), font: { size: 11 } } },
+              x: { ticks: { font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      // ==================== PARTICIPANT RENDERING ====================
+      function renderParticipantView() {
+        const joinCard = document.getElementById('part-join-card');
+        const terminal = document.getElementById('part-terminal');
+        if (!myTraderId || !state.traders[myTraderId]) {
+          joinCard.classList.remove('hidden');
+          terminal.classList.add('hidden');
+          document.getElementById('join-room-input').value = state.roomCode;
+        } else {
+          joinCard.classList.add('hidden');
+          terminal.classList.remove('hidden');
+          renderParticipantTerminal();
+        }
+      }
+
+      function renderParticipantTerminal() {
+        const trader = state.traders[myTraderId];
+        if (!trader) return;
+
+        document.getElementById('term-trader-name').textContent = trader.name;
+        document.getElementById('term-trader-id').textContent = trader.id;
+        document.getElementById('term-room-code').textContent = state.roomCode;
+        document.getElementById('term-day-badge').textContent = `${state.day} / ${state.maxDays}`;
+
+        const prices = getCurrentPrices();
+        const metrics = computeTraderMetrics(trader);
+
+        const tbody = document.getElementById('part-portfolio-body');
+        tbody.innerHTML = INSTRUMENTS.map(inst => {
+          const t = inst.ticker;
+          const pos = trader.positions[t] || 0;
+          const cost = trader.avgCost[t] || 0;
+          const last = prices[t];
+          const bid = last - SPREAD_HALF;
+          const ask = last + SPREAD_HALF;
+          const real = trader.realizedPnl[t] || 0;
+          const unreal = pos !== 0 ? pos * (last - cost) * CONTRACT_SIZE : 0;
+          const vol = trader.volume[t] || 0;
+          const unrealCls = unreal > 0 ? 'text-emerald-700' : unreal < 0 ? 'text-rose-700' : 'text-slate-600';
+          const realCls = real > 0 ? 'text-emerald-700' : real < 0 ? 'text-rose-700' : 'text-slate-600';
+
+          return `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2 px-2.5 font-bold text-slate-900">${t}</td>
+              <td class="py-2 px-2 font-sans text-slate-600">${inst.name}</td>
+              <td class="py-2 px-2 text-right font-bold ${pos > 0 ? 'text-emerald-700' : pos < 0 ? 'text-rose-700' : 'text-slate-700'}">${pos}</td>
+              <td class="py-2 px-2 text-right text-slate-600">${pos !== 0 ? '$' + cost.toFixed(2) : '-'}</td>
+              <td class="py-2 px-2 text-right font-semibold text-slate-900">$${last.toFixed(2)}</td>
+              <td class="py-2 px-2 text-right bg-rose-50/70 text-rose-800">$${bid.toFixed(2)}</td>
+              <td class="py-2 px-2 text-right bg-emerald-50/70 text-emerald-800">$${ask.toFixed(2)}</td>
+              <td class="py-2 px-2 text-right ${realCls}">${formatMoney(real, true)}</td>
+              <td class="py-2 px-2 text-right ${unrealCls}">${formatMoney(unreal, true)}</td>
+              <td class="py-2 px-2.5 text-right text-slate-600">${vol}</td>
+            </tr>
+          `;
+        }).join('');
+
+        document.getElementById('info-cash').textContent = formatMoney(trader.cash);
+        const totalEl = document.getElementById('info-total-pnl');
+        totalEl.textContent = formatMoney(metrics.totalPnl, true);
+        totalEl.className = `text-sm font-bold font-mono-num mt-0.5 ${metrics.totalPnl > 0 ? 'text-emerald-700' : metrics.totalPnl < 0 ? 'text-rose-700' : 'text-slate-900'}`;
+
+        document.getElementById('info-realized-pnl').textContent = formatMoney(metrics.totalRealized, true);
+        document.getElementById('info-unrealized-pnl').textContent = formatMoney(metrics.totalUnrealized, true);
+
+        const grossPct = Math.min(100, (metrics.grossLots / state.grossLimit) * 100);
+        const netPct = Math.min(100, (metrics.netAbsLots / state.netLimit) * 100);
+        document.getElementById('limit-gross-text').textContent = `${metrics.grossLots} / ${state.grossLimit}`;
+        document.getElementById('limit-gross-bar').style.width = `${grossPct}%`;
+        document.getElementById('limit-gross-bar').className = `h-full transition-all ${grossPct >= 90 ? 'bg-rose-600' : 'bg-blue-600'}`;
+
+        document.getElementById('limit-net-text').textContent = `${metrics.netAbsLots} / ${state.netLimit}`;
+        document.getElementById('limit-net-bar').style.width = `${netPct}%`;
+        document.getElementById('limit-net-bar').className = `h-full transition-all ${netPct >= 90 ? 'bg-rose-600' : 'bg-amber-500'}`;
+
+        updateOrderEntryPreview();
+        renderParticipantNews();
+        renderParticipantChart();
+      }
+
+      function updateOrderEntryPreview() {
+        const ticker = document.getElementById('order-ticker').value;
+        const qty = parseInt(document.getElementById('order-qty').value, 10) || 0;
+        const prices = getCurrentPrices();
+        const mid = prices[ticker] || 0;
+        document.getElementById('order-bid').textContent = `$${(mid - SPREAD_HALF).toFixed(2)}`;
+        document.getElementById('order-ask').textContent = `$${(mid + SPREAD_HALF).toFixed(2)}`;
+        const notional = qty * CONTRACT_SIZE * mid;
+        document.getElementById('order-notional-preview').textContent = `Est. Cash Impact: ${formatMoney(notional)}`;
+      }
+
+      function renderParticipantNews() {
+        const availableNews = SCENARIO_DAYS.slice(0, state.day).slice().reverse();
+        if (selectedNewsDay > state.day) selectedNewsDay = state.day;
+
+        const unread = availableNews.filter(n => !readNewsDays.has(n.day)).length;
+        document.getElementById('news-unread-count').textContent = `${unread} Unread`;
+
+        const latestDayObj = SCENARIO_DAYS[state.day - 1] || SCENARIO_DAYS[0];
+        const partRumorBox = document.getElementById('part-rumor-box');
+        if (latestDayObj.nextRumor) {
+          partRumorBox.classList.remove('hidden');
+          document.getElementById('part-rumor-text').textContent = latestDayObj.nextRumor;
+        } else {
+          partRumorBox.classList.add('hidden');
+        }
+
+        const listEl = document.getElementById('part-news-list');
+        listEl.innerHTML = availableNews.map(n => {
+          const isSelected = n.day === selectedNewsDay;
+          const isRead = readNewsDays.has(n.day);
+          const badge = n.rumorStatus === 'TRUE'
+            ? '<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">TRUE</span>'
+            : n.rumorStatus === 'FALSE'
+              ? '<span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">FALSE</span>'
+              : '<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">OPEN</span>';
+          return `
+            <tr data-news-day="${n.day}" class="${isSelected ? 'news-row-active font-semibold' : 'hover:bg-slate-50'}">
+              <td class="py-1.5 px-2.5 font-mono-num">Day ${n.day}</td>
+              <td class="py-1.5 px-2">${badge}</td>
+              <td class="py-1.5 px-2 truncate max-w-[200px]">${n.headline}</td>
+              <td class="py-1.5 px-2.5 text-center">${isRead ? '&#10003;' : '<span class="inline-block w-2 h-2 rounded-full bg-blue-600"></span>'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        listEl.querySelectorAll('tr[data-news-day]').forEach(row => {
+          row.addEventListener('click', () => {
+            const d = parseInt(row.getAttribute('data-news-day'), 10);
+            selectedNewsDay = d;
+            readNewsDays.add(d);
+            renderParticipantNews();
+          });
+        });
+
+        const activeNews = SCENARIO_DAYS[selectedNewsDay - 1] || SCENARIO_DAYS[0];
+        document.getElementById('reader-day').textContent = `Day ${activeNews.day} of ${state.maxDays}`;
+        const readerVerdict = document.getElementById('reader-verdict');
+        if (activeNews.rumorStatus === 'TRUE') {
+          readerVerdict.textContent = 'RUMOR: TRUE';
+          readerVerdict.className = 'px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold';
+        } else if (activeNews.rumorStatus === 'FALSE') {
+          readerVerdict.textContent = 'RUMOR: FALSE';
+          readerVerdict.className = 'px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold';
+        } else {
+          readerVerdict.className = 'hidden';
+        }
+        document.getElementById('reader-headline').textContent = activeNews.headline;
+        document.getElementById('reader-focus').textContent = activeNews.focus;
+        document.getElementById('reader-body').textContent = activeNews.body;
+      }
+
+      function renderParticipantChart() {
+        document.getElementById('chart-active-ticker').textContent = selectedChartTicker;
+        document.querySelectorAll('.chart-tab-btn').forEach(btn => {
+          const t = btn.getAttribute('data-chart-ticker');
+          btn.className = t === selectedChartTicker
+            ? 'chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-slate-800 text-white'
+            : 'chart-tab-btn px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-700 border border-slate-300';
+        });
+
+        const inst = INSTRUMENTS.find(i => i.ticker === selectedChartTicker) || INSTRUMENTS[0];
+        const labels = SCENARIO_DAYS.slice(0, state.day).map(d => `Day ${d.day}`);
+        const data = SCENARIO_DAYS.slice(0, state.day).map(d => d.prices[inst.ticker]);
+
+        const ctx = document.getElementById('part-chart').getContext('2d');
+        if (partChartInstance) partChartInstance.destroy();
+        partChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: `${inst.ticker} ($/bbl)`,
+              data,
+              borderColor: inst.color,
+              backgroundColor: inst.color + '18',
+              fill: true,
+              borderWidth: 2.5,
+              tension: 0.2,
+              pointRadius: 4,
+              pointBackgroundColor: inst.color
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ticks: { callback: v => '$' + v.toFixed(2), font: { size: 11 } } },
+              x: { ticks: { font: { size: 11 } } }
+            }
+          }
+        });
+      }
+
+      // ==================== EVENT LISTENERS ====================
+      document.getElementById('nav-facilitator-btn').addEventListener('click', () => switchView('facilitator'));
+      document.getElementById('nav-participant-btn').addEventListener('click', () => switchView('participant'));
+      document.getElementById('landing-facilitator-btn').addEventListener('click', () => switchView('facilitator'));
+      document.getElementById('landing-participant-btn').addEventListener('click', () => switchView('participant'));
+
+      document.getElementById('fac-next-day-btn').addEventListener('click', () => {
+        if (state.day >= state.maxDays) return;
+        state.day += 1;
+        simulateDemoTradesForDay(state.day);
+        saveAndBroadcastState();
+        renderFacilitatorView();
+        showToast(`Advanced to Day ${state.day}: New market dispatch released!`, 'info');
+      });
+
+      document.getElementById('fac-reset-btn').addEventListener('click', () => {
+        openConfirmModal(
+          'Reset Simulation',
+          'This will reset all participants back to Day 1 with identical starting cash and zero open positions. Continue?',
+          () => {
+            const oldTraders = state.traders;
+            const preservedCfg = {
+              classSize: state.classSize,
+              startingCash: state.startingCash,
+              grossLimit: state.grossLimit,
+              netLimit: state.netLimit,
+              roomCode: state.roomCode
+            };
+            state = createDefaultState();
+            Object.assign(state, preservedCfg);
+            Object.values(oldTraders).forEach(t => {
+              state.traders[t.id] = createEmptyTrader(t.id, t.name, t.isDemo);
+            });
+            selectedNewsDay = 1;
+            readNewsDays = new Set([1]);
+            saveAndBroadcastState();
+            renderCurrentView();
+            showToast('Game reset to Day 1.', 'success');
+          }
+        );
+      });
+
+      document.getElementById('fac-apply-cfg-btn').addEventListener('click', () => {
+        if (state.day > 1) return;
+        state.classSize = parseInt(document.getElementById('cfg-class-size').value, 10) || 6;
+        state.startingCash = parseInt(document.getElementById('cfg-starting-cash').value, 10) || 1000000;
+        state.grossLimit = Math.max(10, parseInt(document.getElementById('cfg-gross-limit').value, 10) || 100);
+        state.netLimit = Math.max(10, parseInt(document.getElementById('cfg-net-limit').value, 10) || 60);
+        Object.values(state.traders).forEach(t => {
+          state.traders[t.id] = createEmptyTrader(t.id, t.name, t.isDemo);
+        });
+        saveAndBroadcastState();
+        renderFacilitatorView();
+        showToast('Starting conditions updated for all participants.', 'success');
+      });
+
+      document.getElementById('fac-seed-demo-btn').addEventListener('click', () => {
+        const demoNames = ['Maya', 'Liam', 'Siti', 'Kenji', 'Priya', 'Noah', 'Elena'];
+        for (let i = 1; i <= state.classSize; i++) {
+          const seatId = `P${i}`;
+          if (!state.traders[seatId]) {
+            state.traders[seatId] = createEmptyTrader(seatId, demoNames[i - 1], true);
+          }
+        }
+        saveAndBroadcastState();
+        renderFacilitatorView();
+        showToast(`Populated up to ${state.classSize} class seats.`, 'success');
+      });
+
+      document.getElementById('fac-copy-url-btn').addEventListener('click', () => {
+        const input = document.getElementById('fac-join-url');
+        input.select();
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(input.value);
+          } else {
+            document.execCommand('copy');
+          }
+          showToast('Join URL copied to clipboard.', 'success');
+        } catch (e) {
+          showToast('Copy the URL directly from the box.', 'info');
+        }
+      });
+
+      document.getElementById('fac-qr-btn').addEventListener('click', () => {
+        renderQRCode();
+        showToast('QR Join Code refreshed.', 'info');
+      });
+
+      document.getElementById('fac-open-sim-tab-btn').addEventListener('click', () => {
+        switchView('participant');
+      });
+
+      document.getElementById('join-submit-btn').addEventListener('click', () => {
+        const room = (document.getElementById('join-room-input').value || '').trim().toUpperCase();
+        const name = (document.getElementById('join-name-input').value || '').trim();
+        const seat = document.getElementById('join-seat-select').value;
+
+        if (!name) {
+          showToast('Please enter your name or Trader ID.', 'error');
+          return;
+        }
+        if (room && room !== state.roomCode) {
+          state.roomCode = room;
+        }
+        if (!state.traders[seat] || state.traders[seat].isDemo) {
+          state.traders[seat] = createEmptyTrader(seat, name, false);
+        } else {
+          state.traders[seat].name = name;
+          state.traders[seat].isDemo = false;
+        }
+        myTraderId = seat;
+        saveAndBroadcastState();
+        renderParticipantView();
+        showToast(`Welcome ${name} (${seat})!`, 'success');
+      });
+
+      document.getElementById('part-leave-btn').addEventListener('click', () => {
+        myTraderId = null;
+        renderParticipantView();
+      });
+
+      document.getElementById('part-pin-btn').addEventListener('click', () => {
+        const pin = (document.getElementById('part-pin-input').value || '').trim();
+        const match = SCENARIO_DAYS.find(d => d.pin === pin);
+        if (!match) {
+          showToast('Invalid Day Pin. Check the Facilitator screen.', 'error');
+          return;
+        }
+        state.day = match.day;
+        selectedNewsDay = match.day;
+        saveAndBroadcastState();
+        renderParticipantTerminal();
+        document.getElementById('part-pin-input').value = '';
+        showToast(`Synced to Day ${match.day}!`, 'success');
+      });
+
+      document.getElementById('order-ticker').addEventListener('change', updateOrderEntryPreview);
+      document.getElementById('order-qty').addEventListener('input', updateOrderEntryPreview);
+      document.querySelectorAll('.quick-qty-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('order-qty').value = btn.getAttribute('data-qty');
+          updateOrderEntryPreview();
+        });
+      });
+
+      document.getElementById('btn-buy').addEventListener('click', () => {
+        const ticker = document.getElementById('order-ticker').value;
+        const qty = document.getElementById('order-qty').value;
+        executeOrder(myTraderId, ticker, 'BUY', qty);
+      });
+
+      document.getElementById('btn-sell').addEventListener('click', () => {
+        const ticker = document.getElementById('order-ticker').value;
+        const qty = document.getElementById('order-qty').value;
+        executeOrder(myTraderId, ticker, 'SELL', qty);
+      });
+
+      document.querySelectorAll('.chart-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedChartTicker = btn.getAttribute('data-chart-ticker');
+          renderParticipantChart();
+        });
+      });
+
+      // ==================== INITIALIZATION ====================
+      loadStateFromStorage();
+      renderQRCode();
+
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get('role');
+      const roomParam = params.get('room');
+      if (roomParam) {
+        state.roomCode = roomParam.toUpperCase();
+      }
+
+      if (roleParam === 'participant') {
+        switchView('participant');
+      } else if (roleParam === 'facilitator') {
+        switchView('facilitator');
+      } else {
+        switchView('landing');
+      }
+    })();
+  </script>
+</body>
+</html>
